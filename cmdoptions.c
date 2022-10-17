@@ -99,12 +99,13 @@ void _destroy_entry(void* ptr)
 void cmdoptions_destroy(struct cmdoptions* options)
 {
     unsigned int i;
+    char** p;
     for(i = 0; i < options->entries_size; ++i)
     {
         _destroy_entry(options->entries[i]);
     }
     free(options->entries);
-    char** p = options->positional_parameters;
+    p = options->positional_parameters;
     while(*p)
     {
         free(*p);
@@ -124,10 +125,11 @@ void cmdoptions_exit(struct cmdoptions* options, int exitcode)
 
 static int _check_capacity(struct cmdoptions* options)
 {
+    void** tmp;
     if(options->entries_size + 1 > options->entries_capacity)
     {
         options->entries_capacity *= 2;
-        void** tmp = realloc(options->entries, sizeof(*tmp) * options->entries_capacity);
+        tmp = realloc(options->entries, sizeof(*tmp) * options->entries_capacity);
         if(!tmp)
         {
             return 0;
@@ -150,6 +152,7 @@ static int _add_entry(struct cmdoptions* options, struct entry* entry)
 
 int cmdoptions_add_section(struct cmdoptions* options, const char* name)
 {
+    struct entry* entry;
     struct section* section = malloc(sizeof(*section));
     section->name = malloc(strlen(name));
     if(!section->name)
@@ -158,7 +161,7 @@ int cmdoptions_add_section(struct cmdoptions* options, const char* name)
         return 0;
     }
     strcpy(section->name, name);
-    struct entry* entry = malloc(sizeof(*entry));
+    entry = malloc(sizeof(*entry));
     entry->what = SECTION;
     entry->value = section;
     if(!_add_entry(options, entry))
@@ -172,6 +175,7 @@ int cmdoptions_add_section(struct cmdoptions* options, const char* name)
 
 static struct entry* _create_option(char short_identifier, const char* long_identifier, int numargs, const char* help)
 {
+    struct entry* entry;
     struct option* option = malloc(sizeof(*option));
     if(!option)
     {
@@ -184,7 +188,7 @@ static struct entry* _create_option(char short_identifier, const char* long_iden
     option->was_provided = 0;
     option->help = help;
     option->aliased = NULL;
-    struct entry* entry = malloc(sizeof(*entry));
+    entry = malloc(sizeof(*entry));
     if(!entry)
     {
         free(option);
@@ -197,6 +201,7 @@ static struct entry* _create_option(char short_identifier, const char* long_iden
 
 int cmdoptions_add_alias(struct cmdoptions* options, const char* long_aliased_identifier, char short_identifier, const char* long_identifier, const char* help)
 {
+    struct entry* entry;
     struct option* alias = NULL;
     unsigned int i;
     for(i = 0; i < options->entries_size; ++i)
@@ -213,7 +218,7 @@ int cmdoptions_add_alias(struct cmdoptions* options, const char* long_aliased_id
         }
     }
 
-    struct entry* entry = _create_option(short_identifier, long_identifier, 0, help); /* num_args will never be used */
+    entry = _create_option(short_identifier, long_identifier, 0, help); /* num_args will never be used */
     if(!entry)
     {
         return 0;
@@ -340,10 +345,19 @@ static void _print_wrapped_paragraph(const char* text, unsigned int textwidth, u
 void cmdoptions_help(const struct cmdoptions* options)
 {
     unsigned int displaywidth = 80;
-    _get_screen_width(&displaywidth);
-
     unsigned int optwidth = 0;
     unsigned int i;
+    unsigned int startskip = 4;
+    unsigned int helpsep = 4;
+    unsigned int leftmargin = 0;
+    unsigned int rightmargin = 1;
+    int narrow;
+    unsigned int offset;
+    unsigned int textwidth;
+    unsigned int count;
+
+    _get_screen_width(&displaywidth);
+
     for(i = 0; i < options->entries_size; ++i)
     {
         struct entry* entry = options->entries[i];
@@ -365,13 +379,10 @@ void cmdoptions_help(const struct cmdoptions* options)
         }
     }
 
-    unsigned int startskip = 4;
-    unsigned int helpsep = 4;
-    unsigned int leftmargin = 0;
-    unsigned int rightmargin = 1;
-    int narrow = options->force_narrow_mode || (displaywidth < 100); /* FIXME: make dynamic (dependent on maximum word width or something) */
-    unsigned int offset = narrow ? 2 * startskip : optwidth + startskip + helpsep;
-    unsigned int textwidth = displaywidth - offset - leftmargin - rightmargin;
+    narrow = options->force_narrow_mode || (displaywidth < 100); /* FIXME: make dynamic (dependent on maximum word width or something) */
+
+    offset = narrow ? 2 * startskip : optwidth + startskip + helpsep;
+    textwidth = displaywidth - offset - leftmargin - rightmargin;
 
     puts(options->prehelpmsg);
     puts("list of command line options:\n");
@@ -387,7 +398,7 @@ void cmdoptions_help(const struct cmdoptions* options)
         {
             struct option* option = entry->value;
             _print_sep(startskip);
-            unsigned int count = optwidth;
+            count = optwidth;
             if(option->short_identifier)
             {
                 putchar('-');
@@ -415,7 +426,7 @@ void cmdoptions_help(const struct cmdoptions* options)
             {
                 _print_sep(helpsep + count);
             }
-            unsigned int leftmargin = narrow ? 2 * startskip : startskip + optwidth + helpsep;
+            leftmargin = narrow ? 2 * startskip : startskip + optwidth + helpsep;
             _print_wrapped_paragraph(option->help, textwidth, leftmargin);
             putchar('\n');
         }
@@ -427,6 +438,10 @@ static void _print_with_correct_escape_sequences(const char* str)
 {
     unsigned int numescape = 0;
     const char* ptr = str;
+    size_t len = strlen(str);
+    char* buf;
+    char* dest;
+
     while(*ptr)
     {
         if(*ptr == '\\')
@@ -435,10 +450,9 @@ static void _print_with_correct_escape_sequences(const char* str)
         }
         ++ptr;
     }
-    size_t len = strlen(str);
-    char* buf = malloc(len + numescape + 1);
+    buf = malloc(len + numescape + 1);
     ptr = str;
-    char* dest = buf;
+    dest = buf;
     while(*ptr)
     {
         *dest = *ptr;
@@ -496,34 +510,25 @@ void cmdoptions_export_manpage(const struct cmdoptions* options)
     }
 }
 
-static struct option* _get_option_short(struct cmdoptions* options, char short_identifier)
+static struct option* _get_option(struct cmdoptions* options, char short_identifier, const char* long_identifier)
 {
     unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
-    {
-        struct entry* entry = options->entries[i];
-        if(entry->what == OPTION)
-        {
-            struct option* option = entry->value;
-            if(option->short_identifier == short_identifier)
-            {
-                return option;
-            }
-        }
-    }
-    return NULL;
-}
-
-static struct option* _get_option_long(struct cmdoptions* options, const char* long_identifier)
-{
-    unsigned int i;
+    int found = 0;
     for(i = 0; i < options->entries_size; ++i)
     {
         const struct entry* entry = options->entries[i];
         if(entry->what == OPTION)
         {
             struct option* option = entry->value;
-            if(strcmp(option->long_identifier, long_identifier) == 0)
+            if(long_identifier)
+            {
+                found = (strcmp(option->long_identifier, long_identifier) == 0);
+            }
+            else
+            {
+                found = (option->short_identifier == short_identifier);
+            }
+            if(found)
             {
                 if(option->aliased)
                 {
@@ -539,25 +544,27 @@ static struct option* _get_option_long(struct cmdoptions* options, const char* l
     return NULL;
 }
 
-const char** cmdoptions_get_positional_parameters(const struct cmdoptions* options)
+const char** cmdoptions_get_positional_parameters(struct cmdoptions* options)
 {
     return (const char**) options->positional_parameters;
 }
 
-int cmdoptions_was_provided_long(const struct cmdoptions* options, const char* opt)
+int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier)
 {
-    unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
+    const struct option* option = _get_option(options, short_identifier, NULL);
+    if(option)
     {
-        struct entry* entry = options->entries[i];
-        if(entry->what == OPTION)
-        {
-            struct option* option = entry->value;
-            if(strcmp(option->long_identifier, opt) == 0)
-            {
-                return option->was_provided;
-            }
-        }
+        return option->was_provided;
+    }
+    return 0;
+}
+
+int cmdoptions_was_provided_long(struct cmdoptions* options, const char* long_identifier)
+{
+    const struct option* option = _get_option(options, 0, long_identifier);
+    if(option)
+    {
+        return option->was_provided;
     }
     return 0;
 }
@@ -565,6 +572,8 @@ int cmdoptions_was_provided_long(const struct cmdoptions* options, const char* o
 int _store_argument(struct option* option, int* iptr, int argc, const char* const * argv)
 {
     int j;
+    int len;
+    char** argument;
     if(option->numargs)
     {
         if(*iptr < argc - 1)
@@ -573,7 +582,7 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
             {
                 if(!option->argument)
                 {
-                    char** argument = calloc(2, sizeof(char*));
+                    argument = calloc(2, sizeof(char*));
                     argument[0] = malloc(strlen(argv[*iptr + 1]));
                     strcpy(argument[0], argv[*iptr + 1]);
                     option->argument = argument;
@@ -582,8 +591,8 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
                 {
                     char** ptr = option->argument;
                     while(*ptr) { ++ptr; }
-                    int len = ptr - (char**)option->argument;
-                    char** argument = calloc(len + 2, sizeof(char*));
+                    len = ptr - (char**)option->argument;
+                    argument = calloc(len + 2, sizeof(char*));
                     for(j = 0; j < len; ++j)
                     {
                         argument[j] = ((char**)option->argument)[j];
@@ -634,7 +643,7 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
             if(arg[1] == '-') /* long option */
             {
                 const char* longopt = arg + 2;
-                struct option* option = _get_option_long(options, longopt);
+                struct option* option = _get_option(options, 0, longopt);
                 if(!option)
                 {
                     printf("unknown command line option: '--%s'\n", longopt);
@@ -659,7 +668,7 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                 while(*ch)
                 {
                     char shortopt = *ch;
-                    struct option* option = _get_option_short(options, shortopt);
+                    struct option* option = _get_option(options, shortopt, NULL);
                     if(!option)
                     {
                         /*printf("unknown command line option: '--%s'\n", longopt); */
@@ -698,20 +707,22 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
     return 1;
 }
 
-const void* cmdoptions_get_argument_long(const struct cmdoptions* options, const char* long_identifier)
+const void* cmdoptions_get_argument_short(struct cmdoptions* options, char short_identifier)
 {
-    unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
+    const struct option* option = _get_option(options, short_identifier, NULL);
+    if(option)
     {
-        struct entry* entry = options->entries[i];
-        if(entry->what == OPTION)
-        {
-            struct option* option = entry->value;
-            if(strcmp(option->long_identifier, long_identifier) == 0)
-            {
-                return option->argument;
-            }
-        }
+        return option->argument;
+    }
+    return NULL;
+}
+
+const void* cmdoptions_get_argument_long(struct cmdoptions* options, const char* long_identifier)
+{
+    const struct option* option = _get_option(options, 0, long_identifier);
+    if(option)
+    {
+        return option->argument;
     }
     return NULL;
 }

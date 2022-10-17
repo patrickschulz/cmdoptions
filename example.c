@@ -5,13 +5,17 @@
 
 int main(int argc, const char * const *argv)
 {
+    int returnvalue;
+    const char** pos;
+    unsigned int count;
+
     /* create state and add options */
     struct cmdoptions* cmdoptions = cmdoptions_create();
     cmdoptions_add_option(cmdoptions, 'h', "help", NO_ARG, "display help");
     cmdoptions_add_option(cmdoptions, NO_SHORT, "number", SINGLE_ARG, "number");
 
     /* parse options */
-    int returnvalue = 0;
+    returnvalue = 0;
     if(!cmdoptions_parse(cmdoptions, argc, argv))
     {
         returnvalue = 1;
@@ -32,8 +36,8 @@ int main(int argc, const char * const *argv)
         printf("number was: %d\n", num);
     }
 
-    const char** pos = cmdoptions_get_positional_parameters(cmdoptions);
-    unsigned int count = 1;
+    pos = cmdoptions_get_positional_parameters(cmdoptions);
+    count = 1;
     while(*pos)
     {
         printf("positional parameter #%d: %s\n", count, *pos);

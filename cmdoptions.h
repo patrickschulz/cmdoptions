@@ -31,10 +31,12 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 void cmdoptions_help(const struct cmdoptions* options);
 void cmdoptions_export_manpage(const struct cmdoptions* options);
 
-int cmdoptions_was_provided_long(const struct cmdoptions* options, const char* opt);
+int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier);
+int cmdoptions_was_provided_long(struct cmdoptions* options, const char* long_identifier);
 
-const void* cmdoptions_get_argument_long(const struct cmdoptions* options, const char* long_identifier);
-const char** cmdoptions_get_positional_parameters(const struct cmdoptions* options);
+const void* cmdoptions_get_argument_short(struct cmdoptions* options, char short_identifier);
+const void* cmdoptions_get_argument_long(struct cmdoptions* options, const char* long_identifier);
+const char** cmdoptions_get_positional_parameters(struct cmdoptions* options);
 
 #endif /* OPC_CMDOPTS_H */
 
