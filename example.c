@@ -22,7 +22,7 @@ int main(int argc, const char * const *argv)
     }
 
     /* test for options */
-    if(cmdoptions_was_provided_long(cmdoptions, "help"))
+    if(cmdoptions_was_provided_long(cmdoptions, "help") || cmdoptions_no_args_given(cmdoptions))
     {
         cmdoptions_help(cmdoptions); /* display help message */
         goto DESTROY_CMDOPTIONS;

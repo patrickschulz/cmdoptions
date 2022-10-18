@@ -519,7 +519,7 @@ static struct option* _get_option(struct cmdoptions* options, char short_identif
     int found = 0;
     for(i = 0; i < options->entries_size; ++i)
     {
-        const struct entry* entry = options->entries[i];
+        struct entry* entry = options->entries[i];
         if(entry->what == OPTION)
         {
             struct option* option = entry->value;
@@ -550,6 +550,24 @@ static struct option* _get_option(struct cmdoptions* options, char short_identif
 const char** cmdoptions_get_positional_parameters(struct cmdoptions* options)
 {
     return (const char**) options->positional_parameters;
+}
+
+int cmdoptions_no_args_given(const struct cmdoptions* options)
+{
+    unsigned int i;
+    for(i = 0; i < options->entries_size; ++i)
+    {
+        const struct entry* entry = options->entries[i];
+        if(entry->what == OPTION)
+        {
+            const struct option* option = entry->value;
+            if(option->was_provided)
+            {
+                return 0;
+            }
+        }
+    }
+    return 1;
 }
 
 int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier)

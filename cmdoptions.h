@@ -31,6 +31,7 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 void cmdoptions_help(const struct cmdoptions* options);
 void cmdoptions_export_manpage(const struct cmdoptions* options);
 
+int cmdoptions_no_args_given(const struct cmdoptions* options);
 int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier);
 int cmdoptions_was_provided_long(struct cmdoptions* options, const char* long_identifier);
 
