@@ -1,6 +1,5 @@
 #include "cmdoptions.h"
 
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -358,6 +357,7 @@ void cmdoptions_help(const struct cmdoptions* options)
 
     _get_screen_width(&displaywidth);
 
+    /* find maximum options width */
     for(i = 0; i < options->entries_size; ++i)
     {
         struct entry* entry = options->entries[i];
@@ -442,6 +442,7 @@ static void _print_with_correct_escape_sequences(const char* str)
     char* buf;
     char* dest;
 
+    /* count number of required escapes */
     while(*ptr)
     {
         if(*ptr == '\\')
@@ -450,6 +451,8 @@ static void _print_with_correct_escape_sequences(const char* str)
         }
         ++ptr;
     }
+
+    /* assemble escaped string */
     buf = malloc(len + numescape + 1);
     ptr = str;
     dest = buf;
