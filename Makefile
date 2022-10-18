@@ -1,3 +1,6 @@
+.PHONY: all
+all: example example.1
+
 example: example.c cmdoptions.h cmdoptions.c
 	gcc -g -Og -ansi -Wall -Wextra -pedantic example.c cmdoptions.c -o example
 
@@ -9,4 +12,4 @@ generate_manpage: manpage.c cmdoptions.h cmdoptions.c
 
 .PHONY: clean
 clean:
-	rm example
+	rm -f example generate_manpage

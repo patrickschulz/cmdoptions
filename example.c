@@ -11,8 +11,7 @@ int main(int argc, const char * const *argv)
 
     /* create state and add options */
     struct cmdoptions* cmdoptions = cmdoptions_create();
-    cmdoptions_add_option(cmdoptions, 'h', "help", NO_ARG, "display help");
-    cmdoptions_add_option(cmdoptions, NO_SHORT, "number", SINGLE_ARG, "number");
+    #include "cmdoptions_def.c"
 
     /* parse options */
     returnvalue = 0;

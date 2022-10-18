@@ -5,8 +5,7 @@
 int main(void)
 {
     struct cmdoptions* cmdoptions = cmdoptions_create();
-    cmdoptions_add_option(cmdoptions, 'h', "help", NO_ARG, "display help");
-    cmdoptions_add_option(cmdoptions, NO_SHORT, "number", SINGLE_ARG, "number");
+    #include "cmdoptions_def.c"
     puts(".TH example 1 \"01 Jan 1970\" \"1.0\" \"example man page\"");
     puts(".SH NAME");
     puts("example \\- manpage example for cmdoptions");
