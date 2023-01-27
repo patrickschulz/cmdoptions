@@ -31,7 +31,7 @@ struct entry {
 };
 
 struct cmdoptions {
-    void** entries;
+    struct entry** entries;
     size_t entries_size;
     size_t entries_capacity;
     char** positional_parameters;
@@ -124,7 +124,7 @@ void cmdoptions_exit(struct cmdoptions* options, int exitcode)
 
 static int _check_capacity(struct cmdoptions* options)
 {
-    void** tmp;
+    struct entry** tmp;
     if(options->entries_size + 1 > options->entries_capacity)
     {
         options->entries_capacity *= 2;
@@ -720,9 +720,10 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                 ++count;
                 ++p;
             }
-            options->positional_parameters = realloc(options->positional_parameters, count + 1);
-            options->positional_parameters[count] = malloc(strlen(arg));
+            options->positional_parameters = realloc(options->positional_parameters, sizeof(*options->positional_parameters) * (count + 2)); /* one more for the sentinel */
+            options->positional_parameters[count] = malloc(strlen(arg) + 1);
             strcpy(options->positional_parameters[count], arg);
+            options->positional_parameters[count + 1] = NULL; /* terminate */
         }
     }
     return 1;
