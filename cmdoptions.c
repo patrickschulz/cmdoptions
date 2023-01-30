@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#ifdef ENABLE_TERM_WIDTH
 #include <sys/ioctl.h>
 #include <err.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
-
-#define _MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
 
 struct option {
     char short_identifier;
@@ -284,6 +285,7 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 
 static int _get_screen_width(unsigned int* width)
 {
+#ifdef ENABLE_TERM_WIDTH
     struct winsize ws;
     int fd;
 
@@ -298,6 +300,10 @@ static int _get_screen_width(unsigned int* width)
 
     *width = ws.ws_col;
     return 1;
+#else
+    (void) width;
+    return 80;
+#endif
 }
 
 static void _print_sep(unsigned int num)
