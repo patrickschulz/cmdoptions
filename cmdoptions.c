@@ -153,7 +153,7 @@ int cmdoptions_add_section(struct cmdoptions* options, const char* name)
 {
     struct entry* entry;
     struct section* section = malloc(sizeof(*section));
-    section->name = malloc(strlen(name));
+    section->name = malloc(strlen(name) + 1);
     if(!section->name)
     {
         free(section);
@@ -249,14 +249,14 @@ int cmdoptions_add_option_default(struct cmdoptions* options, char short_identif
     if(numargs > 1)
     {
         char** arg = calloc(2, sizeof(*arg));
-        arg[0] = malloc(strlen(default_arg));
+        arg[0] = malloc(strlen(default_arg) + 1);
         strcpy(arg[0], default_arg);
         arg[1] = NULL;
         ((struct option*)entry->value)->argument = arg;
     }
     else
     {
-        char* arg = malloc(strlen(default_arg));
+        char* arg = malloc(strlen(default_arg) + 1);
         strcpy(arg, default_arg);
         ((struct option*)entry->value)->argument = arg;
     }
@@ -604,7 +604,7 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
                 if(!option->argument)
                 {
                     argument = calloc(2, sizeof(char*));
-                    argument[0] = malloc(strlen(argv[*iptr + 1]));
+                    argument[0] = malloc(strlen(argv[*iptr + 1]) + 1);
                     strcpy(argument[0], argv[*iptr + 1]);
                     option->argument = argument;
                 }
@@ -618,7 +618,7 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
                     {
                         argument[j] = ((char**)option->argument)[j];
                     }
-                    argument[len] = malloc(strlen(argv[*iptr + 1]));
+                    argument[len] = malloc(strlen(argv[*iptr + 1]) + 1);
                     strcpy(argument[len], argv[*iptr + 1]);
                     free(option->argument);
                     option->argument = argument;
@@ -626,7 +626,7 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
             }
             else /* SINGLE_ARG option */
             {
-                option->argument = malloc(strlen(argv[*iptr + 1]));
+                option->argument = malloc(strlen(argv[*iptr + 1]) + 1);
                 strcpy(option->argument, argv[*iptr + 1]);
             }
         }
