@@ -700,14 +700,15 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                     struct option* option = _get_option(options, shortopt, NULL);
                     if(!option)
                     {
-                        /*printf("unknown command line option: '--%s'\n", longopt); */
-                        /*return 0; */
+                        printf("unknown command line option: '-%c'\n", shortopt);
+                        return 0;
                     }
                     else
                     {
                         if(option->was_provided && !(option->numargs & MULTI_ARGS))
                         {
                             printf("option '%c' is only allowed once\n", shortopt);
+                            return 0;
                         }
                         option->was_provided = 1;
                         if(!_store_argument(option, &i, argc, argv))
