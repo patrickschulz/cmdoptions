@@ -27,7 +27,7 @@ struct section {
 };
 
 struct entry {
-    void* value;
+    void* value; /* struct option* or struct section* */
     enum { SECTION, OPTION } what;
 };
 
@@ -346,6 +346,8 @@ static void _print_wrapped_paragraph(const char* text, unsigned int textwidth, u
     }
     _put_line(textwidth, &linewidth, &ch, wptr, leftmargin);
 }
+
+#define _MAX(a, b) ((a) > (b) ? (a) : (b))
 
 void cmdoptions_help(const struct cmdoptions* options)
 {
