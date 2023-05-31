@@ -3,7 +3,11 @@ This repository provides a framework for parsing command-line options in C.
 It's main goals area ease of use and flexibility as well as some advanced features such as nice help display and manpage generation.
 
 # Usage
-This is not intended as a library but rather a source file in your own code. Copy `cmdoptions.{c,h}` and use them similar to as in `example.c`.
+This is not intended as a library that you link but rather a source file in your own code. Copy `cmdoptions.{c,h}` and use them similar to as in `example.c`.
+
+# Compilation Flags
+The help display takes the terminal width into account, which requires a few header files (sys/ioctl.h, err.h, fcntl.h, unistd.h and termios.h).
+If you have these headers, set ENABLE_TERM_WIDTH on the compiler command line, otherwise the width is always just assumed to be 80.
 
 # API
 ## Initialization
