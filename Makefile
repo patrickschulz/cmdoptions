@@ -2,7 +2,7 @@
 all: example example.1
 
 example: example.c cmdoptions.h cmdoptions.c cmdoptions_def.c
-	gcc -g -Og -ansi -Wall -Wextra -pedantic example.c cmdoptions.c -o example
+	gcc -g -Og -ansi -Wall -Wextra -pedantic example.c cmdoptions.c -o example -DENABLE_TERM_WIDTH
 
 example.1: generate_manpage
 	./generate_manpage > example.1
