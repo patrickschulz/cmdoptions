@@ -931,6 +931,21 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
                 }
                 else
                 {
+                    if(!option->was_provided) /* default argument */
+                    {
+                        /* FIXME: this if-branch is currently untested and might result in memory access errors */
+                        char** p = option->argument;
+                        while(*p)
+                        {
+                            free(*p);
+                            ++p;
+                        }
+                        /* start new with only terminator */
+                        free(option->argument);
+                        char** new = malloc(sizeof(*new));
+                        new[0] = NULL;
+                        option->argument = new;
+                    }
                     char** ptr = option->argument;
                     while(*ptr) { ++ptr; }
                     len = ptr - (char**)option->argument;
@@ -947,6 +962,10 @@ int _store_argument(struct option* option, int* iptr, int argc, const char* cons
             }
             else /* SINGLE_ARG option */
             {
+                if(option->argument && !option->was_provided) /* default argument */
+                {
+                    free(option->argument);
+                }
                 option->argument = malloc(strlen(argv[*iptr + 1]) + 1);
                 strcpy(option->argument, argv[*iptr + 1]);
             }
@@ -1016,11 +1035,12 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                     {
                         printf("option '%s' is only allowed once\n", longopt);
                     }
-                    option->was_provided = 1;
                     if(!_store_argument(option, &i, argc, argv))
                     {
                         return 0;
                     }
+                    /* was_provided is checked in _store_argument, so this has to come after the _store_argument call */
+                    option->was_provided = 1;
                 }
             }
             else /* short option */
