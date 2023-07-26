@@ -31,22 +31,38 @@ struct entry {
     enum { SECTION, OPTION } what;
 };
 
-struct cmdoptions {
+struct mode {
+    char* identifier;
     struct entry** entries;
     size_t entries_size;
     size_t entries_capacity;
+    int was_selected;
+};
+
+struct cmdoptions {
+    struct mode** modes; /* first 'mode' is mode-less */
+    size_t size;
+    size_t capacity;
     char** positional_parameters;
     char* prehelpmsg;
     char* posthelpmsg;
     int force_narrow_mode;
+    int valid;
 };
 
 struct cmdoptions* cmdoptions_create(void)
 {
     struct cmdoptions* options = malloc(sizeof(*options));
-    options->entries_size = 0;
-    options->entries_capacity = 1;
-    options->entries = malloc(options->entries_capacity * sizeof(*options->entries));
+    struct mode* basemode = malloc(sizeof(*basemode));
+    basemode->identifier = NULL;
+    basemode->entries_size = 0;
+    basemode->entries_capacity = 1;
+    basemode->entries = malloc(basemode->entries_capacity * sizeof(*basemode->entries));
+    basemode->was_selected = 1; /* basemode is always selected */
+    options->modes = malloc(sizeof(*options->modes));
+    options->modes[0] = basemode;
+    options->size = 1;
+    options->capacity = 1;
     options->positional_parameters = malloc(sizeof(*options->positional_parameters));;
     *options->positional_parameters = NULL;
     options->prehelpmsg = malloc(1);
@@ -54,6 +70,7 @@ struct cmdoptions* cmdoptions_create(void)
     options->posthelpmsg = malloc(1);
     options->posthelpmsg[0] = 0;
     options->force_narrow_mode = 0;
+    options->valid = 1;
     return options;
 }
 
@@ -96,15 +113,27 @@ void _destroy_entry(void* ptr)
     free(ptr);
 }
 
+static void _destroy_mode(struct mode* mode)
+{
+    size_t i;
+    for(i = 0; i < mode->entries_size; ++i)
+    {
+        _destroy_entry(mode->entries[i]);
+    }
+    free(mode->entries);
+    free(mode->identifier);
+    free(mode);
+}
+
 void cmdoptions_destroy(struct cmdoptions* options)
 {
-    unsigned int i;
+    size_t i;
     char** p;
-    for(i = 0; i < options->entries_size; ++i)
+    for(i = 0; i < options->size; ++i)
     {
-        _destroy_entry(options->entries[i]);
+        _destroy_mode(options->modes[i]);
     }
-    free(options->entries);
+    free(options->modes);
     p = options->positional_parameters;
     while(*p)
     {
@@ -123,35 +152,95 @@ void cmdoptions_exit(struct cmdoptions* options, int exitcode)
     exit(exitcode);
 }
 
-static int _check_capacity(struct cmdoptions* options)
+int cmdoptions_is_valid(const struct cmdoptions* options)
+{
+    return options->valid;
+}
+
+static int _check_capacity(struct mode* mode)
 {
     struct entry** tmp;
-    if(options->entries_size + 1 > options->entries_capacity)
+    if(mode->entries_size + 1 > mode->entries_capacity)
     {
-        options->entries_capacity *= 2;
-        tmp = realloc(options->entries, sizeof(*tmp) * options->entries_capacity);
+        mode->entries_capacity *= 2;
+        tmp = realloc(mode->entries, sizeof(*tmp) * mode->entries_capacity);
         if(!tmp)
         {
             return 0;
         }
-        options->entries = tmp;
+        mode->entries = tmp;
     }
     return 1;
 }
 
-static int _add_entry(struct cmdoptions* options, struct entry* entry)
+static int _add_entry(struct mode* mode, struct entry* entry)
 {
-    if(!_check_capacity(options))
+    if(!_check_capacity(mode))
     {
         return 0;
     }
-    options->entries[options->entries_size] = entry;
-    options->entries_size += 1;
+    mode->entries[mode->entries_size] = entry;
+    mode->entries_size += 1;
+    return 1;
+}
+
+static struct mode* _find_mode(struct cmdoptions* options, const char* modename)
+{
+    size_t i;
+    for(i = 1; i < options->size; ++i) /* start at 1: skip basemode */
+    {
+        if(strcmp(modename, options->modes[i]->identifier) == 0)
+        {
+            return options->modes[i];
+        }
+    }
+    return NULL;
+}
+
+static const struct mode* _find_const_mode(const struct cmdoptions* options, const char* modename)
+{
+    size_t i;
+    for(i = 1; i < options->size; ++i) /* start at 1: skip basemode */
+    {
+        if(strcmp(modename, options->modes[i]->identifier) == 0)
+        {
+            return options->modes[i];
+        }
+    }
+    return NULL;
+}
+
+int cmdoptions_mode_add_section(struct cmdoptions* options, const char* modename, const char* name)
+{
+    struct entry* entry;
+    struct section* section = malloc(sizeof(*section));
+    struct mode* mode = _find_mode(options, modename);
+    if(!mode)
+    {
+        return 0;
+    }
+    section->name = malloc(strlen(name) + 1);
+    if(!section->name)
+    {
+        free(section);
+        return 0;
+    }
+    strcpy(section->name, name);
+    entry = malloc(sizeof(*entry));
+    entry->what = SECTION;
+    entry->value = section;
+    if(!_add_entry(mode, entry))
+    {
+        free(section);
+        free(entry);
+        return 0;
+    }
     return 1;
 }
 
 int cmdoptions_add_section(struct cmdoptions* options, const char* name)
 {
+    struct mode* mode = options->modes[0]; /* base mode */
     struct entry* entry;
     struct section* section = malloc(sizeof(*section));
     section->name = malloc(strlen(name) + 1);
@@ -164,7 +253,7 @@ int cmdoptions_add_section(struct cmdoptions* options, const char* name)
     entry = malloc(sizeof(*entry));
     entry->what = SECTION;
     entry->value = section;
-    if(!_add_entry(options, entry))
+    if(!_add_entry(mode, entry))
     {
         free(section);
         free(entry);
@@ -199,14 +288,46 @@ static struct entry* _create_option(char short_identifier, const char* long_iden
     return entry;
 }
 
+static struct mode* _get_basemode(struct cmdoptions* options)
+{
+    return options->modes[0];
+}
+
+static const struct mode* _get_const_basemode(const struct cmdoptions* options)
+{
+    return options->modes[0];
+}
+
+int cmdoptions_add_mode(struct cmdoptions* options, const char* modename)
+{
+    struct mode* mode;
+    if(_find_const_mode(options, modename))
+    {
+        return 0;
+    }
+    options->size += 1;
+    options->capacity += 1; /* capacity really needed? */
+    options->modes = realloc(options->modes, options->capacity * sizeof(*options->modes));
+    mode = malloc(sizeof(*mode));
+    mode->identifier = malloc(strlen(modename) + 1);
+    strcpy(mode->identifier, modename);
+    mode->entries_size = 0;
+    mode->entries_capacity = 1;
+    mode->entries = malloc(mode->entries_capacity * sizeof(*mode->entries));
+    mode->was_selected = 0;
+    options->modes[options->size - 1] = mode;
+    return 1;
+}
+
 int cmdoptions_add_alias(struct cmdoptions* options, const char* long_aliased_identifier, char short_identifier, const char* long_identifier, const char* help)
 {
     struct entry* entry;
     struct option* alias = NULL;
     unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
+    struct mode* basemode = _get_basemode(options);
+    for(i = 0; i < basemode->entries_size; ++i)
     {
-        struct entry* entry = options->entries[i];
+        struct entry* entry = basemode->entries[i];
         if(entry->what == OPTION)
         {
             struct option* option = entry->value;
@@ -224,7 +345,7 @@ int cmdoptions_add_alias(struct cmdoptions* options, const char* long_aliased_id
         return 0;
     }
     ((struct option*)entry->value)->aliased = alias;
-    if(!_add_entry(options, entry))
+    if(!_add_entry(basemode, entry))
     {
         _destroy_entry(entry);
         return 0;
@@ -235,7 +356,12 @@ int cmdoptions_add_alias(struct cmdoptions* options, const char* long_aliased_id
 int cmdoptions_add_option(struct cmdoptions* options, char short_identifier, const char* long_identifier, int numargs, const char* help)
 {
     struct entry* entry = _create_option(short_identifier, long_identifier, numargs, help);
-    if(!_add_entry(options, entry))
+    if(!entry)
+    {
+        return 0;
+    }
+    struct mode* basemode = _get_basemode(options);
+    if(!_add_entry(basemode, entry))
     {
         _destroy_entry(entry);
         return 0;
@@ -243,10 +369,30 @@ int cmdoptions_add_option(struct cmdoptions* options, char short_identifier, con
     return 1;
 }
 
+int cmdoptions_mode_add_option(struct cmdoptions* options, const char* modename, char short_identifier, const char* long_identifier, int numargs, const char* help)
+{
+    struct entry* entry = _create_option(short_identifier, long_identifier, numargs, help);
+    if(!entry)
+    {
+        return 0;
+    }
+    struct mode* mode = _find_mode(options, modename);
+    if(!_add_entry(mode, entry))
+    {
+        _destroy_entry(entry);
+        return 0;
+    }
+    return 1;
+}
 
 int cmdoptions_add_option_default(struct cmdoptions* options, char short_identifier, const char* long_identifier, int numargs, const char* default_arg, const char* help)
 {
     struct entry* entry = _create_option(short_identifier, long_identifier, numargs, help);
+    if(!entry)
+    {
+        return 0;
+    }
+    struct mode* basemode = _get_basemode(options);
     if(numargs > 1)
     {
         char** arg = calloc(2, sizeof(*arg));
@@ -258,10 +404,15 @@ int cmdoptions_add_option_default(struct cmdoptions* options, char short_identif
     else
     {
         char* arg = malloc(strlen(default_arg) + 1);
+        if(!arg)
+        {
+            _destroy_entry(entry);
+            return 0;
+        }
         strcpy(arg, default_arg);
         ((struct option*)entry->value)->argument = arg;
     }
-    if(!_add_entry(options, entry))
+    if(!_add_entry(basemode, entry))
     {
         _destroy_entry(entry);
         return 0;
@@ -273,6 +424,11 @@ void cmdoptions_prepend_help_message(struct cmdoptions* options, const char* msg
 {
     size_t len = strlen(options->prehelpmsg) + strlen(msg);
     char* str = realloc(options->prehelpmsg, len + 1);
+    if(!str)
+    {
+        options->valid = 0;
+        return;
+    }
     strcat(str, msg);
 }
 
@@ -280,6 +436,11 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 {
     size_t len = strlen(options->posthelpmsg) + strlen(msg);
     char* str = realloc(options->posthelpmsg, len + 1);
+    if(!str)
+    {
+        options->valid = 0;
+        return;
+    }
     strcat(str, msg);
 }
 
@@ -349,8 +510,87 @@ static void _print_wrapped_paragraph(const char* text, unsigned int textwidth, u
 
 #define _MAX(a, b) ((a) > (b) ? (a) : (b))
 
+static void _find_max_opt_width(const struct cmdoptions* options, unsigned int* optwidth)
+{
+    size_t i;
+    size_t m;
+    struct mode* mode;
+    for(m = 0; m < options->size; ++m)
+    {
+        mode = options->modes[m];
+        for(i = 0; i < mode->entries_size; ++i)
+        {
+            struct entry* entry = mode->entries[i];
+            if(entry->what == OPTION)
+            {
+                struct option* option = entry->value;
+                if(option->short_identifier && !option->long_identifier)
+                {
+                    *optwidth = _MAX(*optwidth, 2); /* 2: -%c */
+                }
+                else if(!option->short_identifier && option->long_identifier)
+                {
+                    *optwidth = _MAX(*optwidth, strlen(option->long_identifier) + 2); /* + 2: -- */
+                }
+                else
+                {
+                    *optwidth = _MAX(*optwidth, 2 + 1 + strlen(option->long_identifier) + 2); /* +1: , */
+                }
+            }
+        }
+    }
+
+}
+
+static void _print_help_entry(const struct entry* entry, unsigned int startskip, unsigned int leftmargin, unsigned int textwidth, unsigned int optwidth, unsigned int helpsep, int narrow)
+{
+    unsigned int count;
+    if(entry->what == SECTION)
+    {
+        struct section* section = entry->value;
+        puts(section->name);
+    }
+    else
+    {
+        struct option* option = entry->value;
+        _print_sep(startskip);
+        count = optwidth;
+        if(option->short_identifier)
+        {
+            putchar('-');
+            putchar(option->short_identifier);
+            count -= 2;
+        }
+        if(option->short_identifier && option->long_identifier)
+        {
+            putchar(',');
+            count -= 1;
+        }
+        if(option->long_identifier)
+        {
+            putchar('-');
+            putchar('-');
+            fputs(option->long_identifier, stdout);
+            count -= (2 + strlen(option->long_identifier));
+        }
+        if(narrow)
+        {
+            putchar('\n');
+            _print_sep(2 * startskip);
+        }
+        else
+        {
+            _print_sep(helpsep + count);
+        }
+        leftmargin = narrow ? 2 * startskip : startskip + optwidth + helpsep;
+        _print_wrapped_paragraph(option->help, textwidth, leftmargin);
+        putchar('\n');
+    }
+}
+
 void cmdoptions_help(const struct cmdoptions* options)
 {
+    /* FIXME: include modes */
     unsigned int displaywidth = 80;
     unsigned int optwidth = 0;
     unsigned int i;
@@ -361,31 +601,12 @@ void cmdoptions_help(const struct cmdoptions* options)
     int narrow;
     unsigned int offset;
     unsigned int textwidth;
-    unsigned int count;
+    size_t m;
+    const struct mode* mode;
 
     _get_screen_width(&displaywidth);
 
-    /* find maximum options width */
-    for(i = 0; i < options->entries_size; ++i)
-    {
-        struct entry* entry = options->entries[i];
-        if(entry->what == OPTION)
-        {
-            struct option* option = entry->value;
-            if(option->short_identifier && !option->long_identifier)
-            {
-                optwidth = _MAX(optwidth, 2); /* 2: -%c */
-            }
-            else if(!option->short_identifier && option->long_identifier)
-            {
-                optwidth = _MAX(optwidth, strlen(option->long_identifier) + 2); /* + 2: -- */
-            }
-            else
-            {
-                optwidth = _MAX(optwidth, 2 + 1 + strlen(option->long_identifier) + 2); /* +1: , */
-            }
-        }
-    }
+    _find_max_opt_width(options, &optwidth);
 
     narrow = options->force_narrow_mode || (displaywidth < 100); /* FIXME: make dynamic (dependent on maximum word width or something) */
 
@@ -394,52 +615,27 @@ void cmdoptions_help(const struct cmdoptions* options)
 
     puts(options->prehelpmsg);
     puts("list of command line options:\n");
-    for(i = 0; i < options->entries_size; ++i)
+    printf("%s:\n", "generic options");
+    mode = _get_const_basemode(options);
+    for(i = 0; i < mode->entries_size; ++i)
     {
-        struct entry* entry = options->entries[i];
-        if(entry->what == SECTION)
-        {
-            struct section* section = entry->value;
-            puts(section->name);
-        }
-        else
-        {
-            struct option* option = entry->value;
-            _print_sep(startskip);
-            count = optwidth;
-            if(option->short_identifier)
-            {
-                putchar('-');
-                putchar(option->short_identifier);
-                count -= 2;
-            }
-            if(option->short_identifier && option->long_identifier)
-            {
-                putchar(',');
-                count -= 1;
-            }
-            if(option->long_identifier)
-            {
-                putchar('-');
-                putchar('-');
-                fputs(option->long_identifier, stdout);
-                count -= (2 + strlen(option->long_identifier));
-            }
-            if(narrow)
-            {
-                putchar('\n');
-                _print_sep(2 * startskip);
-            }
-            else
-            {
-                _print_sep(helpsep + count);
-            }
-            leftmargin = narrow ? 2 * startskip : startskip + optwidth + helpsep;
-            _print_wrapped_paragraph(option->help, textwidth, leftmargin);
-            putchar('\n');
-        }
+        const struct entry* entry = mode->entries[i];
+        _print_help_entry(entry, startskip, leftmargin, textwidth, optwidth, helpsep, narrow);
     }
-    puts(options->posthelpmsg);
+    putchar('\n');
+
+    for(m = 1; m < options->size; ++m)
+    {
+        mode = options->modes[m];
+        printf("%s:\n", mode->identifier);
+        for(i = 0; i < mode->entries_size; ++i)
+        {
+            const struct entry* entry = mode->entries[i];
+            _print_help_entry(entry, startskip, leftmargin, textwidth, optwidth, helpsep, narrow);
+        }
+        putchar('\n');
+    }
+    fputs(options->posthelpmsg, stdout);
 }
 
 static void _print_with_correct_escape_sequences(const char* str)
@@ -482,52 +678,92 @@ static void _print_with_correct_escape_sequences(const char* str)
 
 void cmdoptions_export_manpage(const struct cmdoptions* options)
 {
+    unsigned int m;
     unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
+    struct mode* mode;
+    for(m = 0; m < options->size; ++m)
     {
-        struct entry* entry = options->entries[i];
-        if(entry->what == OPTION)
+        mode = options->modes[m];
+        for(i = 0; i < mode->entries_size; ++i)
         {
-            struct option* option = entry->value;
-            fputs(".IP \"\\fB\\", stdout);
-            if(option->short_identifier && option->long_identifier)
+            struct entry* entry = mode->entries[i];
+            if(entry->what == OPTION)
             {
-                fputc('-', stdout);
-                fputc(option->short_identifier, stdout);
-                fputc(',', stdout);
-                fputc('-', stdout);
-                fputc('-', stdout);
-                fputs(option->long_identifier, stdout);
+                struct option* option = entry->value;
+                fputs(".IP \"\\fB\\", stdout);
+                if(option->short_identifier && option->long_identifier)
+                {
+                    fputc('-', stdout);
+                    fputc(option->short_identifier, stdout);
+                    fputc(',', stdout);
+                    fputc('-', stdout);
+                    fputc('-', stdout);
+                    fputs(option->long_identifier, stdout);
+                }
+                else if(option->short_identifier)
+                {
+                    fputc('-', stdout);
+                    fputc(option->short_identifier, stdout);
+                }
+                else if(option->long_identifier)
+                {
+                    fputc('-', stdout);
+                    fputc('-', stdout);
+                    fputs(option->long_identifier, stdout);
+                }
+                printf("\\fR %s\" 4\n", "");
+                _print_with_correct_escape_sequences(option->help);
             }
-            else if(option->short_identifier)
+            else /* section */
             {
-                fputc('-', stdout);
-                fputc(option->short_identifier, stdout);
+                struct section* section = entry->value;
+                printf(".SS %s\n", section->name);
             }
-            else if(option->long_identifier)
-            {
-                fputc('-', stdout);
-                fputc('-', stdout);
-                fputs(option->long_identifier, stdout);
-            }
-            printf("\\fR %s\" 4\n", "");
-            _print_with_correct_escape_sequences(option->help);
-        }
-        else /* section */
-        {
-            struct section* section = entry->value;
-            printf(".SS %s\n", section->name);
         }
     }
 }
 
-static struct option* _get_option(struct cmdoptions* options, char short_identifier, const char* long_identifier)
+static struct option* _get_option(struct mode* mode, char short_identifier, const char* long_identifier)
 {
     unsigned int i;
     int found = 0;
-    for(i = 0; i < options->entries_size; ++i)
+    for(i = 0; i < mode->entries_size; ++i)
     {
-        struct entry* entry = options->entries[i];
+        struct entry* entry = mode->entries[i];
+        if(entry->what == OPTION)
+        {
+            struct option* option = entry->value;
+            if(long_identifier)
+            {
+                found = (strcmp(option->long_identifier, long_identifier) == 0);
+            }
+            else
+            {
+                found = (option->short_identifier == short_identifier);
+            }
+            if(found)
+            {
+                if(option->aliased)
+                {
+                    return option->aliased;
+                }
+                else
+                {
+                    return option;
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
+static const struct option* _get_const_option(const struct mode* mode, char short_identifier, const char* long_identifier)
+{
+    unsigned int i;
+    int found = 0;
+    for(i = 0; i < mode->entries_size; ++i)
+    {
+        struct entry* entry = mode->entries[i];
         if(entry->what == OPTION)
         {
             struct option* option = entry->value;
@@ -560,12 +796,29 @@ const char** cmdoptions_get_positional_parameters(struct cmdoptions* options)
     return (const char**) options->positional_parameters;
 }
 
-int cmdoptions_no_args_given(const struct cmdoptions* options)
+static int _no_positional_parameters(const struct cmdoptions* options)
+{
+    unsigned int count = 0;
+    char** p = options->positional_parameters;
+    while(*p)
+    {
+        ++count;
+        ++p;
+    }
+    return count == 0;
+}
+
+int cmdoptions_empty(const struct cmdoptions* options)
+{
+    return cmdoptions_no_args_given(options) && _no_positional_parameters(options);
+}
+
+static int _no_args_given(const struct mode* mode)
 {
     unsigned int i;
-    for(i = 0; i < options->entries_size; ++i)
+    for(i = 0; i < mode->entries_size; ++i)
     {
-        const struct entry* entry = options->entries[i];
+        const struct entry* entry = mode->entries[i];
         if(entry->what == OPTION)
         {
             const struct option* option = entry->value;
@@ -578,9 +831,62 @@ int cmdoptions_no_args_given(const struct cmdoptions* options)
     return 1;
 }
 
+int cmdoptions_no_args_given(const struct cmdoptions* options)
+{
+    unsigned int m;
+    int ret = 1;
+    for(m = 0; m < options->size; ++m)
+    {
+        const struct mode* mode = options->modes[m];
+        if(mode->was_selected)
+        {
+            ret = ret && _no_args_given(mode);
+        }
+    }
+    return ret;
+}
+
+int cmdoptions_mode_no_args_given(const struct cmdoptions* options, const char* modename)
+{
+    const struct mode* mode = _find_const_mode(options, modename);
+    if(!mode)
+    {
+        fprintf(stderr, "trying to access command-line mode '%s'. This mode does not exist\n", modename);
+        return -1;
+    }
+    return _no_args_given(mode);
+}
+
+static int _was_provided_short(const struct mode* mode, char short_identifier)
+{
+    const struct option* option = _get_const_option(mode, short_identifier, NULL);
+    if(option)
+    {
+        return option->was_provided;
+    }
+    return 0;
+}
+
 int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier)
 {
-    const struct option* option = _get_option(options, short_identifier, NULL);
+    const struct mode* mode = _get_const_basemode(options);
+    return _was_provided_short(mode, short_identifier);
+}
+
+int cmdoptions_mode_was_provided_short(struct cmdoptions* options, const char* modename, char short_identifier)
+{
+    const struct mode* mode = _find_const_mode(options, modename);
+    if(!mode)
+    {
+        fprintf(stderr, "trying to access command-line option '%c' of mode '%s'. This mode does not exist\n", short_identifier, modename);
+        return 0;
+    }
+    return _was_provided_short(mode, short_identifier);
+}
+
+static int _was_provided_long(const struct mode* mode, const char* long_identifier)
+{
+    const struct option* option = _get_const_option(mode, 0, long_identifier);
     if(option)
     {
         return option->was_provided;
@@ -590,12 +896,19 @@ int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identif
 
 int cmdoptions_was_provided_long(struct cmdoptions* options, const char* long_identifier)
 {
-    const struct option* option = _get_option(options, 0, long_identifier);
-    if(option)
+    const struct mode* mode = _get_const_basemode(options);
+    return _was_provided_long(mode, long_identifier);
+}
+
+int cmdoptions_mode_was_provided_long(struct cmdoptions* options, const char* modename, const char* long_identifier)
+{
+    const struct mode* mode = _find_const_mode(options, modename);
+    if(!mode)
     {
-        return option->was_provided;
+        fprintf(stderr, "trying to access command-line option '%s' of mode '%s'. This mode does not exist\n", long_identifier, modename);
+        return 0;
     }
-    return 0;
+    return _was_provided_long(mode, long_identifier);
 }
 
 int _store_argument(struct option* option, int* iptr, int argc, const char* const * argv)
@@ -659,20 +972,39 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
 {
     int endofoptions = 0;
     int i;
+    struct mode* mode = _get_basemode(options);
     for(i = 1; i < argc; ++i)
     {
         const char* arg = argv[i];
-        if(!endofoptions && arg[0] == '-' && arg[1] == 0); /* single dash (-) */
+        if(!endofoptions && arg[0] == '-' && arg[1] == 0) /* single dash (-) */
+        ; /* FIXME: handle single dash */
+        /*
+        {
+            Note: don't forget to remove the above semicolon when adding this if clause
+        }
+        */
         else if(!endofoptions && arg[0] == '-' && arg[1] == '-' && arg[2] == 0) /* end of options (--) */
         {
             endofoptions = 1;
+        }
+        else if(!endofoptions && i == 1 && arg[0] != '-') /* mode */
+        {
+            /* FIXME: the current parsing does not support command lines such as:
+             * cmd --generic-option mode --mode-argument 42
+             */
+            mode = _find_mode(options, arg);
+            if(!mode) /* non-existing mode is a parse error */
+            {
+                return 0;
+            }
+            mode->was_selected = 1;
         }
         else if(!endofoptions && arg[0] == '-') /* option */
         {
             if(arg[1] == '-') /* long option */
             {
                 const char* longopt = arg + 2;
-                struct option* option = _get_option(options, 0, longopt);
+                struct option* option = _get_option(mode, 0, longopt);
                 if(!option)
                 {
                     printf("unknown command line option: '--%s'\n", longopt);
@@ -697,7 +1029,7 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                 while(*ch)
                 {
                     char shortopt = *ch;
-                    struct option* option = _get_option(options, shortopt, NULL);
+                    struct option* option = _get_option(mode, shortopt, NULL);
                     if(!option)
                     {
                         printf("unknown command line option: '-%c'\n", shortopt);
@@ -729,7 +1061,15 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
                 ++count;
                 ++p;
             }
-            options->positional_parameters = realloc(options->positional_parameters, sizeof(*options->positional_parameters) * (count + 2)); /* one more for the sentinel */
+            char** positional_parameters = realloc(
+                options->positional_parameters,
+                sizeof(*options->positional_parameters) * (count + 2)); /* one more for the sentinel */
+            if(!positional_parameters)
+            {
+                options->valid = 0;
+                return 0;
+            }
+            options->positional_parameters = positional_parameters;
             options->positional_parameters[count] = malloc(strlen(arg) + 1);
             strcpy(options->positional_parameters[count], arg);
             options->positional_parameters[count + 1] = NULL; /* terminate */
@@ -738,9 +1078,36 @@ int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * a
     return 1;
 }
 
+static const void* _get_argument_short(const struct mode* mode, char short_identifier)
+{
+    const struct option* option = _get_const_option(mode, short_identifier, NULL);
+    if(option)
+    {
+        return option->argument;
+    }
+    return NULL;
+}
+
 const void* cmdoptions_get_argument_short(struct cmdoptions* options, char short_identifier)
 {
-    const struct option* option = _get_option(options, short_identifier, NULL);
+    const struct mode* mode = _get_const_basemode(options);
+    return _get_argument_short(mode, short_identifier);
+}
+
+const void* cmdoptions_mode_get_argument_short(struct cmdoptions* options, const char* modename, char short_identifier)
+{
+    const struct mode* mode = _find_const_mode(options, modename);
+    if(!mode)
+    {
+        fprintf(stderr, "trying to access command-line option '%c' of mode '%s'. This mode does not exist\n", short_identifier, modename);
+        return NULL;
+    }
+    return _get_argument_short(mode, short_identifier);
+}
+
+static const void* _get_argument_long(const struct mode* mode, const char* long_identifier)
+{
+    const struct option* option = _get_const_option(mode, 0, long_identifier);
     if(option)
     {
         return option->argument;
@@ -750,11 +1117,18 @@ const void* cmdoptions_get_argument_short(struct cmdoptions* options, char short
 
 const void* cmdoptions_get_argument_long(struct cmdoptions* options, const char* long_identifier)
 {
-    const struct option* option = _get_option(options, 0, long_identifier);
-    if(option)
+    const struct mode* mode = _get_const_basemode(options);
+    return _get_argument_long(mode, long_identifier);
+}
+
+const void* cmdoptions_mode_get_argument_long(struct cmdoptions* options, const char* modename, const char* long_identifier)
+{
+    const struct mode* mode = _find_const_mode(options, modename);
+    if(!mode)
     {
-        return option->argument;
+        fprintf(stderr, "trying to access command-line option '%s' of mode '%s'. This mode does not exist\n", long_identifier, modename);
+        return NULL;
     }
-    return NULL;
+    return _get_argument_long(mode, long_identifier);
 }
 

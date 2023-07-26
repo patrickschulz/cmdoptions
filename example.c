@@ -12,6 +12,11 @@ int main(int argc, const char * const *argv)
     /* create state and add options */
     struct cmdoptions* cmdoptions = cmdoptions_create();
     #include "cmdoptions_def.c"
+    if(!cmdoptions_is_valid(cmdoptions))
+    {
+        fprintf(stderr, "%s\n", "initialization of command-line options parser failed");
+        cmdoptions_exit(cmdoptions, 1);
+    }
 
     /* parse options */
     returnvalue = 0;
@@ -22,14 +27,14 @@ int main(int argc, const char * const *argv)
     }
 
     /* test for options */
-    if(cmdoptions_was_provided_long(cmdoptions, "help") || cmdoptions_no_args_given(cmdoptions))
+    if(cmdoptions_was_provided_long(cmdoptions, "help") || cmdoptions_empty(cmdoptions))
     {
         cmdoptions_help(cmdoptions); /* display help message */
         goto DESTROY_CMDOPTIONS;
     }
 
     /* option with argument */
-    if(cmdoptions_was_provided_long(cmdoptions, "number"))
+    if(cmdoptions_mode_was_provided_long(cmdoptions, "create", "number"))
     {
         int num = atoi(cmdoptions_get_argument_long(cmdoptions, "number"));
         printf("number was: %d\n", num);
