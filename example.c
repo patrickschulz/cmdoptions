@@ -24,6 +24,7 @@ int main(int argc, const char * const *argv)
     if(!cmdoptions_parse(cmdoptions, argc, argv))
     {
         returnvalue = 1;
+        fprintf(stderr, "%s\n", "parsing of command-line options failed");
         goto DESTROY_CMDOPTIONS;
     }
 
