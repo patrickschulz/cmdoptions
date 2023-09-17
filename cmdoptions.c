@@ -660,7 +660,10 @@ void cmdoptions_help(const struct cmdoptions* options)
 
     puts(options->prehelpmsg);
     puts("list of command line options:\n");
-    printf("%s:\n", "generic options");
+    if(options->size > 1)
+    {
+        printf("%s:\n", "generic options");
+    }
     mode = _get_const_basemode(options);
     for(i = 0; i < mode->entries_size; ++i)
     {
