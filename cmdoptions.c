@@ -458,6 +458,7 @@ void cmdoptions_prepend_help_message(struct cmdoptions* options, const char* msg
         return;
     }
     strcat(str, msg);
+    options->prehelpmsg = str;
 }
 
 void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
@@ -470,6 +471,7 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
         return;
     }
     strcat(str, msg);
+    options->posthelpmsg = str;
 }
 
 static int _get_screen_width(void)
@@ -661,6 +663,7 @@ void cmdoptions_help(const struct cmdoptions* options)
         putchar('\n');
     }
     fputs(options->posthelpmsg, stdout);
+    fputc('\n', stdout);
 }
 
 static void _print_with_correct_escape_sequences(const char* str)
