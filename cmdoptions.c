@@ -472,7 +472,7 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
     strcat(str, msg);
 }
 
-static int _get_screen_width(unsigned int* width)
+static int _get_screen_width(void)
 {
 #ifdef ENABLE_TERM_WIDTH
     struct winsize ws;
@@ -481,16 +481,13 @@ static int _get_screen_width(unsigned int* width)
     fd = open("/dev/tty", O_RDWR);
     if(fd < 0 || ioctl(fd, TIOCGWINSZ, &ws) < 0)
     {
-        err(8, "/dev/tty");
-        return 0;
+        return 80; /* fall back to 80 in case of errors */
     }
 
     close(fd);
 
-    *width = ws.ws_col;
-    return 1;
+    return ws.ws_col;
 #else
-    (void) width;
     return 80;
 #endif
 }
@@ -632,7 +629,7 @@ void cmdoptions_help(const struct cmdoptions* options)
     size_t m;
     const struct mode* mode;
 
-    _get_screen_width(&displaywidth);
+    displaywidth = _get_screen_width();
 
     _find_max_opt_width(options, &optwidth);
 
