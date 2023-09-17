@@ -450,12 +450,21 @@ int cmdoptions_add_option_default(struct cmdoptions* options, char short_identif
 
 void cmdoptions_prepend_help_message(struct cmdoptions* options, const char* msg)
 {
+    int empty = options->prehelpmsg[0] == 0;
     size_t len = strlen(options->prehelpmsg) + strlen(msg);
+    if(!empty)
+    {
+        len = len + 1; /* +1: for newline */
+    }
     char* str = realloc(options->prehelpmsg, len + 1);
     if(!str)
     {
         options->valid = 0;
         return;
+    }
+    if(!empty)
+    {
+        strcat(str, "\n");
     }
     strcat(str, msg);
     options->prehelpmsg = str;
@@ -463,12 +472,21 @@ void cmdoptions_prepend_help_message(struct cmdoptions* options, const char* msg
 
 void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 {
+    int empty = options->posthelpmsg[0] == 0;
     size_t len = strlen(options->posthelpmsg) + strlen(msg);
+    if(!empty)
+    {
+        len = len + 1; /* +1: for newline */
+    }
     char* str = realloc(options->posthelpmsg, len + 1);
     if(!str)
     {
         options->valid = 0;
         return;
+    }
+    if(!empty)
+    {
+        strcat(str, "\n");
     }
     strcat(str, msg);
     options->posthelpmsg = str;
