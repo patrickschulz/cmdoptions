@@ -38,7 +38,7 @@ int main(int argc, const char * const *argv)
     /* option with argument */
     if(cmdoptions_mode_was_provided_long(cmdoptions, "create", "number"))
     {
-        int num = atoi(cmdoptions_get_argument_long(cmdoptions, "number"));
+        int num = atoi(cmdoptions_mode_get_argument_long(cmdoptions, "create", "number"));
         printf("number was: %d\n", num);
     }
 
