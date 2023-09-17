@@ -10,6 +10,7 @@
 #define NO_SHORT 0
 #define NO_LONG NULL
 
+/* main public structure */
 struct cmdoptions;
 
 /* initialization and clean-up */
