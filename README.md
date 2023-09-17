@@ -8,7 +8,7 @@ This is not intended as a library that you link but rather a source file in your
 
 # Compilation Flags
 The help display takes the terminal width into account, which requires a few header files (sys/ioctl.h, err.h, fcntl.h, unistd.h and termios.h).
-If you have these headers, set ENABLE_TERM_WIDTH on the compiler command line, otherwise the width is always just assumed to be 80.
+If you have these headers, set CMDOPTIONS_ENABLE_TERM_WIDTH on the compiler command line, otherwise the width is always just assumed to be 80.
 
 # API
 ## Initialization

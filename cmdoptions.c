@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifdef ENABLE_TERM_WIDTH
+#ifdef CMDOPTIONS_ENABLE_TERM_WIDTH
 #include <sys/ioctl.h>
 #include <err.h>
 #include <fcntl.h>
@@ -476,7 +476,7 @@ void cmdoptions_append_help_message(struct cmdoptions* options, const char* msg)
 
 static int _get_screen_width(void)
 {
-#ifdef ENABLE_TERM_WIDTH
+#ifdef CMDOPTIONS_ENABLE_TERM_WIDTH
     struct winsize ws;
     int fd;
 
