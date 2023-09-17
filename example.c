@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -39,6 +40,9 @@ int main(int argc, const char * const *argv)
         int num = atoi(cmdoptions_get_argument_long(cmdoptions, "number"));
         printf("number was: %d\n", num);
     }
+
+    /* check that no options stay unprocessed */
+    assert(cmdoptions_all_options_checked(cmdoptions));
 
     pos = cmdoptions_get_positional_parameters(cmdoptions);
     count = 1;

@@ -18,6 +18,7 @@ struct option {
     int numargs;
     void* argument; /* is char* for once-only options, char** (with NULL terminator) for multiple options */
     int was_provided;
+    int was_checked;
     const char* help;
     struct option* aliased;
 };
@@ -157,6 +158,32 @@ int cmdoptions_is_valid(const struct cmdoptions* options)
     return options->valid;
 }
 
+int cmdoptions_all_options_checked(const struct cmdoptions* options)
+{
+    size_t i;
+    size_t j;
+    struct mode* mode;
+    struct entry* entry;
+    struct option* option;
+    for(i = 0; i < options->size; ++i)
+    {
+        mode = options->modes[i];
+        for(j = 0; j < mode->entries_size; ++j)
+        {
+            entry = mode->entries[j];
+            if(entry->what == OPTION)
+            {
+                option = entry->value;
+                if(!option->was_checked)
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
 static int _check_capacity(struct mode* mode)
 {
     struct entry** tmp;
@@ -275,6 +302,7 @@ static struct entry* _create_option(char short_identifier, const char* long_iden
     option->numargs = numargs;
     option->argument = NULL;
     option->was_provided = 0;
+    option->was_checked = 0;
     option->help = help;
     option->aliased = NULL;
     entry = malloc(sizeof(*entry));
@@ -857,25 +885,31 @@ int cmdoptions_mode_no_args_given(const struct cmdoptions* options, const char* 
     return _no_args_given(mode);
 }
 
-static int _was_provided_short(const struct mode* mode, char short_identifier)
+static int _was_provided(struct mode* mode, char short_identifier, const char* long_identifier)
 {
-    const struct option* option = _get_const_option(mode, short_identifier, NULL);
+    struct option* option = _get_option(mode, short_identifier, long_identifier);
     if(option)
     {
+        option->was_checked = 1;
         return option->was_provided;
     }
     return 0;
 }
 
+static int _was_provided_short(struct mode* mode, char short_identifier)
+{
+    return _was_provided(mode, short_identifier, NULL);
+}
+
 int cmdoptions_was_provided_short(struct cmdoptions* options, char short_identifier)
 {
-    const struct mode* mode = _get_const_basemode(options);
+    struct mode* mode = _get_basemode(options);
     return _was_provided_short(mode, short_identifier);
 }
 
 int cmdoptions_mode_was_provided_short(struct cmdoptions* options, const char* modename, char short_identifier)
 {
-    const struct mode* mode = _find_const_mode(options, modename);
+    struct mode* mode = _find_mode(options, modename);
     if(!mode)
     {
         fprintf(stderr, "trying to access command-line option '%c' of mode '%s'. This mode does not exist\n", short_identifier, modename);
@@ -884,25 +918,20 @@ int cmdoptions_mode_was_provided_short(struct cmdoptions* options, const char* m
     return _was_provided_short(mode, short_identifier);
 }
 
-static int _was_provided_long(const struct mode* mode, const char* long_identifier)
+static int _was_provided_long(struct mode* mode, const char* long_identifier)
 {
-    const struct option* option = _get_const_option(mode, 0, long_identifier);
-    if(option)
-    {
-        return option->was_provided;
-    }
-    return 0;
+    return _was_provided(mode, 0, long_identifier);
 }
 
 int cmdoptions_was_provided_long(struct cmdoptions* options, const char* long_identifier)
 {
-    const struct mode* mode = _get_const_basemode(options);
+    struct mode* mode = _get_basemode(options);
     return _was_provided_long(mode, long_identifier);
 }
 
 int cmdoptions_mode_was_provided_long(struct cmdoptions* options, const char* modename, const char* long_identifier)
 {
-    const struct mode* mode = _find_const_mode(options, modename);
+    struct mode* mode = _find_mode(options, modename);
     if(!mode)
     {
         fprintf(stderr, "trying to access command-line option '%s' of mode '%s'. This mode does not exist\n", long_identifier, modename);

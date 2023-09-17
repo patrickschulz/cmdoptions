@@ -19,6 +19,7 @@ void cmdoptions_disable_narrow_mode(struct cmdoptions* options);
 void cmdoptions_destroy(struct cmdoptions* options);
 void cmdoptions_exit(struct cmdoptions* options, int exitcode);
 int cmdoptions_is_valid(const struct cmdoptions* options);
+int cmdoptions_all_options_checked(const struct cmdoptions* options);
 
 /* parsing */
 int cmdoptions_parse(struct cmdoptions* options, int argc, const char* const * argv);
