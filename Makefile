@@ -9,7 +9,7 @@ endif
 all: example example.1
 
 example: example.c cmdoptions.h cmdoptions.c cmdoptions_def.c
-	$(CC) $(CFLAGS) example.c cmdoptions.c -o example -DENABLE_TERM_WIDTH
+	$(CC) $(CFLAGS) example.c cmdoptions.c -o example -DCMDOPTIONS_ENABLE_TERM_WIDTH
 
 example.1: generate_manpage
 	./generate_manpage > example.1
