@@ -527,7 +527,10 @@ static void _put_line(unsigned int textwidth, unsigned int* linewidth, const cha
     {
         *linewidth = 0;
         putchar('\n');
-        _print_sep(leftmargin - 1);
+        if(leftmargin > 0)
+        {
+            _print_sep(leftmargin - 1);
+        }
     }
     *linewidth += (wptr - *ch);
     while(*ch < wptr)
