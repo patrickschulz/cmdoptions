@@ -1,4 +1,4 @@
-cmdoptions_add_option(cmdoptions, 'h', "help", NO_ARG, "display help");
+cmdoptions_add_option(cmdoptions, 'x', "xoption", NO_ARG, "test option");
 cmdoptions_add_mode(cmdoptions, "create");
 cmdoptions_mode_add_option(cmdoptions, "create", 'n', "number", SINGLE_ARG, "number");
 cmdoptions_prepend_help_message(cmdoptions, "*** Beginning of help message ***");

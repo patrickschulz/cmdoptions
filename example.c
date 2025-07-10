@@ -1,7 +1,7 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#define ENABLE_TERM_WIDTH
 #include "cmdoptions.h"
 
 int main(int argc, const char * const *argv)
@@ -29,9 +29,10 @@ int main(int argc, const char * const *argv)
     }
 
     /* test for options */
-    if(cmdoptions_was_provided_long(cmdoptions, "help") || cmdoptions_empty(cmdoptions))
+    if(cmdoptions_help_passed(cmdoptions))
     {
         cmdoptions_help(cmdoptions); /* display help message */
+        /* return value is ignored, as this terminates the program anyway */
         goto DESTROY_CMDOPTIONS;
     }
 
@@ -42,8 +43,14 @@ int main(int argc, const char * const *argv)
         printf("number was: %d\n", num);
     }
 
+    /*
+     * call cmdoptions_was_provided_long on --xoption so that the assertation that all options were checked does not fail
+     * --xoption is just provided as test for the special help mode
+     */
+    cmdoptions_was_provided_long(cmdoptions, "xoption");
+
     /* check that no options stay unprocessed */
-    assert(cmdoptions_all_options_checked(cmdoptions));
+    cmdoptions_assert_all_options_checked(cmdoptions);
 
     pos = cmdoptions_get_positional_parameters(cmdoptions);
     count = 1;
