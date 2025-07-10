@@ -1,8 +1,8 @@
 CC= gcc
-#CFLAGS= -std=c99 -O3 -Wall -Wextra -Wstrict-prototypes -pthread
-CFLAGS= -ansi -O3 -Wall -Wextra -Wstrict-prototypes -pthread
+#CFLAGS= -std=c99 -O3 -Wall -Wextra -Wstrict-prototypes
+CFLAGS= -ansi -O3 -Wall -Wextra -Wstrict-prototypes
 ifeq ($(DEBUG), 1)
-    CFLAGS= -ansi -O0 -g -fanalyzer -Wno-analyzer-deref-before-check -fsanitize=address -fsanitize=leak -fsanitize=undefined -Wall -Wextra -Werror=return-type -Werror=implicit-function-declaration -Werror=int-conversion -Werror=discarded-qualifiers -Wstrict-prototypes -pthread
+    CFLAGS= -ansi -O0 -g -fanalyzer -Wno-analyzer-deref-before-check -fsanitize=address -fsanitize=leak -fsanitize=undefined -Wall -Wextra -Werror=return-type -Werror=implicit-function-declaration -Werror=int-conversion -Werror=discarded-qualifiers -Wstrict-prototypes
 endif
 
 .PHONY: all
