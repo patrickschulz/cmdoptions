@@ -746,13 +746,31 @@ int cmdoptions_help(const struct cmdoptions* options)
                             _print_help_entry(entry, startskip, leftmargin, textwidth, optwidth, helpsep, narrow);
                         }
                     }
-                    else
+                    else if(((*pospar)[0] == '-') && ((*pospar)[1] != 0) && ((*pospar)[2] == 0)) /* single character with dash */
                     {
-                        if(strcmp(*pospar, option->long_identifier) == 0)
+                        if((*pospar)[1] == option->short_identifier)
                         {
                             printed = 1;
                             _print_help_entry(entry, startskip, leftmargin, textwidth, optwidth, helpsep, narrow);
                         }
+                    }
+                    else /* multi-character */
+                    {
+                        char* identifier = malloc(strlen(*pospar) + 1);
+                        if(((*pospar)[0] == '-') && (*pospar)[1] == '-') /* starts with two dashes */
+                        {
+                            strcpy(identifier, *pospar + 2);
+                        }
+                        else
+                        {
+                            strcpy(identifier, *pospar);
+                        }
+                        if(strcmp(identifier, option->long_identifier) == 0)
+                        {
+                            printed = 1;
+                            _print_help_entry(entry, startskip, leftmargin, textwidth, optwidth, helpsep, narrow);
+                        }
+                        free(identifier);
                     }
                 }
             }
