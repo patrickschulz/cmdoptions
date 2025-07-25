@@ -91,6 +91,13 @@ void print_wrapped_paragraph(const char* text, unsigned int textwidth, unsigned 
             }
             ++ptr;
         }
+        /* with long strings without spaces it is possible
+         * that no break point was found, fix or this goes
+         * into an endless loop */
+        if(lastspace == ch)
+        {
+            lastspace = ptr - 1;
+        }
         /* all non-first lines are indented */
         if(!firstline)
         {
