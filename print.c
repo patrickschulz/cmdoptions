@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef PRINT_ENABLE_TERM_WIDTH
+#ifdef TERMOGRAPHY_ENABLE_TERM_WIDTH
 #include <sys/ioctl.h>
 #include <err.h>
 #include <fcntl.h>
@@ -12,7 +12,7 @@
 
 unsigned int print_get_screen_width(void)
 {
-#ifdef PRINT_ENABLE_TERM_WIDTH
+#ifdef TERMOGRAPHY_ENABLE_TERM_WIDTH
     struct winsize ws;
     int fd;
 
@@ -52,7 +52,7 @@ void print_wrapped_paragraph(const char* text, unsigned int textwidth, unsigned 
 {
     if(textwidth == 0) /* auto-width mode */
     {
-        textwidth = print_get_screen_width();
+        textwidth = print_get_screen_width() - leftmargin;
     }
     /* the first line does not indent and does not skip space characters at the beginning */
     int firstline = 1;
@@ -80,7 +80,7 @@ void print_wrapped_paragraph(const char* text, unsigned int textwidth, unsigned 
                 break;
             }
             /* end of line (line larger than text width) */
-            if((ptr - ch) > (textwidth - leftmargin))
+            if((ptr - ch) > textwidth)
             {
                 break;
             }
