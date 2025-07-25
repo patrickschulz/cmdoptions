@@ -8,14 +8,14 @@ endif
 .PHONY: all
 all: example example.1
 
-example: example.c cmdoptions.h cmdoptions.c cmdoptions_def.c
-	$(CC) $(CFLAGS) example.c cmdoptions.c -o example -DCMDOPTIONS_ENABLE_TERM_WIDTH
+example: example.c cmdoptions.h cmdoptions.c cmdoptions_def.c print.c print.h
+	$(CC) $(CFLAGS) example.c cmdoptions.c print.c -o example -DCMDOPTIONS_ENABLE_TERM_WIDTH
 
 example.1: generate_manpage
 	./generate_manpage > example.1
 
-generate_manpage: manpage.c cmdoptions.h cmdoptions.c cmdoptions_def.c
-	$(CC) $(CFLAGS) manpage.c cmdoptions.c -o generate_manpage
+generate_manpage: manpage.c cmdoptions.h cmdoptions.c cmdoptions_def.c print.c print.h
+	$(CC) $(CFLAGS) manpage.c cmdoptions.c print.c -o generate_manpage
 
 .PHONY: clean
 clean:
